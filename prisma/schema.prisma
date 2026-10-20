@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Posto {
+  MARECHAL
+  GEN_EX
+  GEN_DIV
+  GEN_BDA
+  CEL
+  TEN_CEL
+  MAJ
+  CAP
+  PRIMEIRO_TEN
+  SEGUNDO_TEN
+  ASP
+  S_TEN
+  PRIMEIRO_SGT
+  SEGUNDO_SGT
+  TERCEIRO_SGT
+  CB
+  SD_EP
+  SD_EV
+  NAO_INFORMADO
+}
+
+enum Quadro {
+  NENHUM
+  QAO
+  PTTC
+}
+
+enum Perfil {
+  USUARIO
+  ADMINISTRADOR
+  ADMINISTRADOR_GERAL
+}
+
+/// Blocos do ANEXO A: a. Militares da Ativa / b. PTTC.
+enum CategoriaPlano {
+  ATIVA
+  PTTC
+}
+
+/// Tipos de inclusao sujeitos a verificacao em duas etapas.
+enum TipoSolicitacao {
+  MILITAR
+  IMPORTACAO_EFETIVO
+  IMPORTACAO_PLANO
+  ADMINISTRADOR
+  FERIAS
+  PLANO_FERIAS
+  DISPENSA
+  DESCONTO
+  PAGAMENTO
+}
+
+enum StatusSolicitacao {
+  PENDENTE
+  APROVADA
+  RECUSADA
+}
+
+model Militar {
+  id                 String   @id @default(cuid())
+  nomeCompleto       String
+  identidade         String   @unique
+  nomeGuerra         String
+  ramal              String?
+  secao              String   @default("NAO INFORMADA")
+  telefone           String?
+  posto              Posto    @default(NAO_INFORMADO)
+  quadro             Quadro   @default(NENHUM)
+  senhaHash          String
+  senhaTemporaria    Boolean  @default(false)
+  perfil             Perfil   @default(USUARIO)
+  permissoes         Json?
+  identidadePendente Boolean  @default(false)
+  /// Antiguidade definitiva da unidade, definida na aba Efetivo.
+  /// Zero = ainda nao definida; nesse caso vale a ordem hierarquica do posto.
+  antiguidade        Int      @default(0)
+  ativo              Boolean  @default(true)
+  criadoEm           DateTime @default(now())
+  atualizadoEm       DateTime @updatedAt
+
+  ferias        Ferias[]    @relation("FeriasTitular")
+  substituicoes Ferias[]    @relation("FeriasSubstituto")
+  dispensas     Dispensa[]
+  descontos     Desconto[]
+  pagamentos    Pagamento[]
+
+  planos              PlanoFerias[] @relation("PlanoTitular")
+  planosSubstituicoes PlanoFerias[] @relation("PlanoSubstituto")
+  solicitacoesFeitas     Solicitacao[] @relation("SolicitacoesFeitas")
+  solicitacoesRevisadas  Solicitacao[] @relation("SolicitacoesRevisadas")
+
+  assinaturasPendentes   DocumentoAssinatura[] @relation("Signatario")
+  assinaturasSolicitadas DocumentoAssinatura[] @relation("SolicitanteAssinatura")
+
+  @@map("militares")
+}
+
+model Ferias {
+  id                String    @id @default(cuid())
+  militarId         String
+  militar           Militar   @relation("FeriasTitular", fields: [militarId], references: [id], onDelete: Cascade)
+  substitutoId      String?
+  substituto        Militar?  @relation("FeriasSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  inicio            DateTime
+  termino           DateTime
+  prontoParaServico DateTime?
+  anoAquisitivo     String
+  periodoAquisitivo String    @default("1")
+  qtdDias           Int       @default(30)
+  diasDesconto      Int       @default(0)
+  diasDispensa      Int       @default(0)
+  pagamento         Boolean   @default(false)
+  observacao        String?
+  criadoEm          DateTime  @default(now())
+  atualizadoEm      DateTime  @updatedAt
+
+  @@map("ferias")
+}
+
+model Dispensa {
+  id         String   @id @default(cuid())
+  militarId  String
+  militar    Militar  @relation(fields: [militarId], references: [id], onDelete: Cascade)
+  inicio     DateTime
+  termino    DateTime
+  dias       Int
+  motivo     String?
+  comentario String?
+  criadoEm   DateTime @default(now())
+
+  @@map("dispensas")
+}
+
+model Desconto {
+  id         String   @id @default(cuid())
+  militarId  String
+  militar    Militar  @relation(fields: [militarId], references: [id], onDelete: Cascade)
+  inicio     DateTime
+  termino    DateTime
+  dias       Int
+  motivo     String?
+  comentario String?
+  criadoEm   DateTime @default(now())
+
+  @@map("descontos")
+}
+
+model Pagamento {
+  id           String    @id @default(cuid())
+  militarId    String
+  militar      Militar   @relation(fields: [militarId], references: [id], onDelete: Cascade)
+  diex         String?
+  dataDiex     DateTime?
+  pago         Boolean   @default(false)
+  observacao   String?
+  criadoEm     DateTime  @default(now())
+  atualizadoEm DateTime  @updatedAt
+
+  @@map("pagamentos")
+}
+
+/// Linha do Plano de Ferias (ANEXO A). Todos os campos de texto sao livres para
+/// que o Administrador possa reproduzir exatamente o modelo do documento oficial.
+model PlanoFerias {
+  id        String         @id @default(cuid())
+  categoria CategoriaPlano @default(ATIVA)
+  secao     String         @default("NAO INFORMADA")
+  ano       Int            @default(2026)
+  ordem     Int            @default(0)
+
+  // Titular: pode ser um militar do efetivo ou um nome digitado livremente.
+  militarId String?
+  militar   Militar? @relation("PlanoTitular", fields: [militarId], references: [id], onDelete: SetNull)
+
+  nomeCompleto String
+  postoTexto   String @default("")
+
+  substitutoId    String?
+  substituto      Militar? @relation("PlanoSubstituto", fields: [substitutoId], references: [id], onDelete: SetNull)
+  substitutoTexto String   @default("")
+
+  // A 5a coluna do documento pode guardar um periodo aquisitivo completo ou so o ano.
+  periodoAquisitivo String @default("")
+  tipoReferencia    String @default("PERIODO")
+  mesAno            String @default("")
+
+  // 0 = UNICO, 1/2/3 = parcelas.
+  parcela        Int       @default(0)
+  dias           Int       @default(30)
+  descontoManual Int?
+  inicio         DateTime?
+  termino        DateTime?
+  observacao     String?
+
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  @@index([categoria, secao, ordem])
+  @@map("plano_ferias")
+}
+
+/// Cabecalho editavel do Plano de Ferias. Registro unico.
+model ConfiguracaoPlano {
+  id           String   @id @default("unica")
+  linha1       String   @default("MINISTÉRIO DA DEFESA")
+  linha2       String   @default("EXÉRCITO BRASILEIRO")
+  linha3       String   @default("COMANDO LOGÍSTICO")
+  linha4       String   @default("DEPARTAMENTO MARECHAL FALCONIERI")
+  anexo        String   @default("ANEXO A")
+  /// Nr Ord calculado pela antiguidade do posto/graduacao. Falso = ordem manual.
+  ordemPorAntiguidade Boolean @default(true)
+  atualizadoEm DateTime @updatedAt @default(now())
+
+  @@map("configuracao_plano")
+}
+
+/// Fila de aprovacao: toda inclusao feita por Administrador aguarda o Administrador Geral.
+model Solicitacao {
+  id     String            @id @default(cuid())
+  tipo   TipoSolicitacao
+  status StatusSolicitacao @default(PENDENTE)
+  resumo String
+  dados  Json
+
+  solicitanteId String
+  solicitante   Militar @relation("SolicitacoesFeitas", fields: [solicitanteId], references: [id], onDelete: Cascade)
+
+  revisorId String?
+  revisor   Militar? @relation("SolicitacoesRevisadas", fields: [revisorId], references: [id], onDelete: SetNull)
+
+  justificativa String?
+  criadoEm      DateTime  @default(now())
+  revisadoEm    DateTime?
+
+  @@index([status, criadoEm])
+  @@map("solicitacoes")
+}
+
+/// Situacao de um documento enviado para assinatura.
+enum StatusAssinatura {
+  PENDENTE
+  ASSINADO
+  RECUSADO
+}
+
+/// Documento do plano de ferias enviado a um militar para assinatura digital.
+///
+/// O conteudo e congelado no momento do envio (`linhas` e `cabecalho`), de modo
+/// que o militar assina exatamente o que viu e alteracoes posteriores no plano
+/// nao mudam o documento assinado. Serve tambem como historico permanente.
+model DocumentoAssinatura {
+  id            String           @id @default(cuid())
+  titulo        String
+  /// O que o militar e, como sai abaixo do nome: "Chefe da turma de apoio".
+  funcao        String
+  status        StatusAssinatura @default(PENDENTE)
+
+  signatarioId  String
+  signatario    Militar          @relation("Signatario", fields: [signatarioId], references: [id], onDelete: Cascade)
+
+  solicitanteId String
+  solicitante   Militar          @relation("SolicitanteAssinatura", fields: [solicitanteId], references: [id], onDelete: Cascade)
+
+  /// Linhas do plano no formato do ANEXO A, congeladas no envio.
+  linhas        Json
+  /// Cabecalho institucional vigente no envio.
+  cabecalho     Json
+  /// Resumo dos filtros aplicados, so para leitura humana.
+  recorte       String?
+  observacao    String?
+  motivoRecusa  String?
+
+  /// Codigo curto impresso no PDF, para conferencia do documento assinado.
+  codigo        String           @unique
+  criadoEm      DateTime         @default(now())
+  assinadoEm    DateTime?
+
+  @@index([signatarioId, status])
+  @@map("documentos_assinatura")
+}

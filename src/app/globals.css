@@ -1,0 +1,105 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-graphite-900 text-zinc-200 antialiased;
+  }
+
+  ::selection {
+    @apply bg-gold text-graphite-900;
+  }
+
+  *:focus-visible {
+    @apply outline-none ring-2 ring-gold ring-offset-2 ring-offset-graphite-900;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(0.8);
+    cursor: pointer;
+  }
+}
+
+@layer components {
+  .rotulo {
+    @apply mb-1.5 block font-display text-[11px] uppercase tracking-[0.18em] text-zinc-400;
+  }
+
+  .campo {
+    @apply w-full rounded-md border border-line bg-graphite-800/80 px-3 py-2.5 text-sm text-zinc-100
+           placeholder:text-zinc-600 transition-colors focus:border-gold;
+  }
+
+  .campo-mono {
+    @apply campo font-mono tracking-wider;
+  }
+
+  .botao {
+    @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2.5 font-display text-[13px]
+           uppercase tracking-[0.14em] transition-all disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .botao-primario {
+    @apply botao relative overflow-hidden bg-gold text-graphite-900 hover:bg-gold-soft;
+  }
+
+  .botao-secundario {
+    @apply botao border border-line bg-graphite-700 text-zinc-300 hover:border-gold hover:text-gold;
+  }
+
+  .botao-perigo {
+    @apply botao border border-rubro/60 bg-rubro/10 text-red-300 hover:bg-rubro/25;
+  }
+
+  .cartao {
+    @apply rounded-lg border border-line bg-graphite-800/70 p-5;
+  }
+
+  .titulo-secao {
+    @apply font-display text-2xl uppercase tracking-[0.12em] text-zinc-100;
+  }
+
+  .eyebrow {
+    @apply font-display text-[11px] uppercase tracking-[0.28em] text-gold;
+  }
+
+  .cabecalho-tabela {
+    @apply whitespace-nowrap border-b border-line px-3 py-2.5 text-left font-display text-[11px]
+           uppercase tracking-[0.12em] text-zinc-400;
+  }
+
+  .celula {
+    @apply whitespace-nowrap border-b border-line/60 px-3 py-2.5 text-sm text-zinc-300;
+  }
+}
+
+/* Rolagem discreta nas tabelas largas */
+.rolagem-fina::-webkit-scrollbar {
+  height: 9px;
+  width: 9px;
+}
+.rolagem-fina::-webkit-scrollbar-track {
+  background: #111713;
+}
+.rolagem-fina::-webkit-scrollbar-thumb {
+  background: #2a362c;
+  border-radius: 999px;
+}
+.rolagem-fina::-webkit-scrollbar-thumb:hover {
+  background: #8f7331;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
